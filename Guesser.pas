@@ -1,164 +1,225 @@
-﻿begin
-  // Base crop sell values (₵ per fruit)
-  var baseValues := new Dictionary<string, real>;
-  baseValues['Carrot'] := 20;
-  baseValues['Strawberry'] := 25;
-  baseValues['Blueberry'] := 30;
-  baseValues['Orange Tulip'] := 17000;
-  baseValues['Tomato'] := 60;
-  baseValues['Corn'] := 27;
-  baseValues['Daffodil'] := 6000;
-  baseValues['Watermelon'] := 900;
-  baseValues['Pumpkin'] := 500;
-  baseValues['Apple'] := 300;
-  baseValues['Bamboo'] := 1000;
-  baseValues['Coconut'] := 35;
-  baseValues['Cactus'] := 500;
-  baseValues['Dragon Fruit'] := 510;
-  baseValues['Mango'] := 1100;
-  baseValues['Grape'] := 2800;
-  baseValues['Mushroom'] := 7530;
-  baseValues['Pepper'] := 3500;
-  baseValues['Cacao'] := 1275;
-  baseValues['Beanstalk'] := 2000;
-  baseValues['Pineapple'] := 115;
-  baseValues['Peach'] := 200;
-  baseValues['Raspberry'] := 115;
-  baseValues['Chocolate Carrot'] := 40000;
-  baseValues['Nightshade'] := 3500;
-  baseValues['Red Lollipop'] := 15000;
-  baseValues['Mint'] := 5500;
-  baseValues['Pear'] := 200;
-  baseValues['Glowshroom'] := 3.7;
-  baseValues['Cranberry'] := 3.5;
-  baseValues['Durian'] := 8.4;
-  baseValues['Easter Egg'] := 814.5;
-  baseValues['Moonflower'] := 4500;
-  baseValues['Starfruit'] := 3500;
-  baseValues['Papaya'] := 0;
-  baseValues['Eggplant'] := 1750;
-  baseValues['Moonglow'] := 2000;
-  baseValues['Passionfruit'] := 1550;
-  baseValues['Lemon'] := 500;
-  baseValues['Banana'] := 114;
-  baseValues['Blood Banana'] := 6940;
-  baseValues['Moon Melon'] := 2800;
-  baseValues['Moon Blossom'] := 30000;
-  baseValues['Cherry Blossom'] := 30000;
-  baseValues['Candy Blossom'] := 44082.8;
-  baseValues['Lotus'] := 4.35;
-  baseValues['Venus Fly Trap'] := 2570;
-  baseValues['Cursed Fruit'] := 520;
-  baseValues['Soul Fruit'] := 1440;
+program PlantSellCalculator;
 
-  // Primary mutation multipliers
-  var primaryMultipliers := new Dictionary<string, integer>;
-  primaryMultipliers['None'] := 1;
-  primaryMultipliers['Golden'] := 20;
-  primaryMultipliers['Rainbow'] := 50;
+const
+  MaxCrops = 50;
+  MaxMutations = 15;
 
-  // Stacked mutation additions
-  var stackAdd := new Dictionary<string, integer>;
-  stackAdd['Wet'] := 2;
-  stackAdd['Chilled'] := 2;
-  stackAdd['Chocolate'] := 2;
-  stackAdd['Moonlit'] := 2;
-  stackAdd['Bloodlit'] := 4;
-  stackAdd['Frozen'] := 10;
-  stackAdd['Zombified'] := 25;
-  stackAdd['Shocked'] := 100;
-  stackAdd['Celestial'] := 120;
-  stackAdd['Disco'] := 125;
+type
+  TStringArray = array[1..MaxCrops] of string;
+  TRealArray = array[1..MaxCrops] of Real;
+  TMutationArray = array[1..MaxMutations] of string;
+  TMultiplierArray = array[1..MaxMutations] of Real;
 
-  // --- Read plant ---
-  Write('Plant name: ');
-  var plant := ReadString().Trim();
-  if not baseValues.ContainsKey(plant) then
-  begin
-    Writeln('Unknown plant.');
-    Exit;
-  end;
+var
+  Crops: TStringArray;
+  CropValues: TRealArray;
+  Mutations: TMutationArray;
+  MutationMultipliers: TMultiplierArray;
+  CropCount, MutationCount: Integer;
 
-  // --- Read primary mutation ---
-  Write('Primary (None, Golden, Rainbow): ');
-  var p := ReadString().Trim().ToLower();
-  var primary := '';
-  if p = 'none' then primary := 'None'
-  else if p = 'golden' then primary := 'Golden'
-  else if p = 'rainbow' then primary := 'Rainbow'
-  else
-  begin
-    Writeln('Invalid primary mutation.');
-    Exit;
-  end;
+function ToLower(const S: string): string;
+var
+  I: Integer;
+  LowerStr: string;
+begin
+  LowerStr := S;
+  for I := 1 to Length(LowerStr) do
+    if (LowerStr[I] >= 'A') and (LowerStr[I] <= 'Z') then
+      LowerStr[I] := Chr(Ord(LowerStr[I]) + 32);
+  ToLower := LowerStr;
+end;
 
-  // --- Read stacked mutations ---
-  Write('Additional mutations (comma-separated, leave blank if none): ');
-  var raw := ReadString().Trim();
-  var stacks := new List<string>;
-  if raw <> '' then
-  begin
-    var parts := raw.Split(',');
-    foreach var part in parts do
+function GetCropValue(CropName: string): Real;
+var
+  I: Integer;
+  Value: Real;
+begin
+  Value := -1;
+  for I := 1 to CropCount do
+    if ToLower(Crops[I]) = ToLower(CropName) then
     begin
-      var m := part.Trim();
-      if m = '' then continue;
-      var norm := m.Substring(0, 1).ToUpper();
-      if m.Length > 1 then norm += m.Substring(1).ToLower();
-      stacks.Add(norm);
+      Value := CropValues[I];
+      Break;
     end;
-  end;
+  GetCropValue := Value;
+end;
 
-  // If Frozen is chosen, disallow Wet and Chilled
-  if stacks.Contains('Frozen') and (stacks.Contains('Wet') or stacks.Contains('Chilled')) then
-  begin
-    Writeln('Cannot combine Frozen with Wet or Chilled.');
-    Exit;
-  end;
-
-  // --- Compute multipliers ---
-  var stackSum := 1;
-  foreach var m in stacks do
-  begin
-    if not stackAdd.ContainsKey(m) then
+function GetMutationMultiplier(const Name: string): Real;
+var
+  I: Integer;
+  Mult: Real;
+begin
+  Mult := -1;
+  for I := 1 to MutationCount do
+    if ToLower(Mutations[I]) = ToLower(Name) then
     begin
-      Writeln('Unknown mutation: ' + m);
-      Exit;
+      Mult := MutationMultipliers[I];
+      Break;
     end;
-    stackSum += stackAdd[m];
+  GetMutationMultiplier := Mult;
+end;
+
+function CalculateTotalMultiplier(const List: string): Real;
+var
+  StartPos, EndPos: Integer;
+  MutName: string;
+  AdditiveMultiplier: Real;
+  RainbowMult, GoldenMult: Real;
+  BaseMult: Real;
+  Factor: Real;
+  FinalMult: Real;
+begin
+  AdditiveMultiplier := 0.0;
+  RainbowMult := 1.0;
+  GoldenMult := 1.0;
+  StartPos := 1;
+  while StartPos <= Length(List) do
+  begin
+    while (StartPos <= Length(List)) and (List[StartPos] = ' ') do
+      Inc(StartPos);
+    EndPos := StartPos;
+    while (EndPos <= Length(List)) and (List[EndPos] <> ',') do
+      Inc(EndPos);
+    MutName := Copy(List, StartPos, EndPos - StartPos);
+    MutName := ToLower(MutName);
+    if MutName <> '' then
+    begin
+      Factor := GetMutationMultiplier(MutName);
+      if Factor < 0 then
+      begin
+        Writeln('Unknown mutation: ', MutName);
+        Exit;
+      end;
+      if MutName = 'rainbow' then
+        RainbowMult := Factor
+      else if MutName = 'golden' then
+        GoldenMult := Factor
+      else
+        AdditiveMultiplier := AdditiveMultiplier + (Factor - 1);
+    end;
+    StartPos := EndPos + 1;
   end;
 
-  var totalMult := primaryMultipliers[primary] * stackSum;
-  var sellValue := baseValues[plant] * totalMult;
+  BaseMult := 1.0 + AdditiveMultiplier;
+  FinalMult := BaseMult * RainbowMult * GoldenMult;
+  CalculateTotalMultiplier := FinalMult;
+end;
 
-  // --- Output ---
-  Write('Calculate for specific quantity? (yes/no): ');
-  var ans := ReadString().Trim().ToLower();
-  if ans = 'yes' then
-  begin
-    Write('Enter quantity (leave blank for 1): ');
-    var qtyInput := ReadString().Trim();
-    var qty: real;
-    if qtyInput = '' then
-      qty := 1
+procedure InitializeData;
+begin
+  CropCount := 50;
+
+  Crops[1]  := 'Carrot';           CropValues[1]  := 18;
+  Crops[2]  := 'Strawberry';       CropValues[2]  := 14;
+  Crops[3]  := 'Blueberry';        CropValues[3]  := 18;
+  Crops[4]  := 'Orange Tulip';     CropValues[4]  := 767;
+  Crops[5]  := 'Tomato';           CropValues[5]  := 27;
+  Crops[6]  := 'Corn';             CropValues[6]  := 36;
+  Crops[7]  := 'Daffodil';         CropValues[7]  := 903;
+  Crops[8]  := 'Watermelon';       CropValues[8]  := 2708;
+  Crops[9]  := 'Pumpkin';          CropValues[9]  := 3700;
+  Crops[10] := 'Apple';            CropValues[10] := 248;
+  Crops[11] := 'Bamboo';           CropValues[11] := 3610;
+  Crops[12] := 'Coconut';          CropValues[12] := 361;
+  Crops[13] := 'Cactus';           CropValues[13] := 3068;
+  Crops[14] := 'Dragon Fruit';     CropValues[14] := 4287;
+  Crops[15] := 'Mango';            CropValues[15] := 5866;
+  Crops[16] := 'Grape';            CropValues[16] := 7085;
+  Crops[17] := 'Mushroom';         CropValues[17] := 136278;
+  Crops[18] := 'Pepper';           CropValues[18] := 7220;
+  Crops[19] := 'Cacao';            CropValues[19] := 9928;
+  Crops[20] := 'Beanstalk';        CropValues[20] := 18050;
+  Crops[21] := 'Pineapple';        CropValues[21] := 1805;
+  Crops[22] := 'Peach';            CropValues[22] := 271;
+  Crops[23] := 'Raspberry';        CropValues[23] := 90;
+  Crops[24] := 'Papaya';           CropValues[24] := 1000;
+  Crops[25] := 'Banana';           CropValues[25] := 1579;
+  Crops[26] := 'Passion Fruit';    CropValues[26] := 3204;
+  Crops[27] := 'Soul Fruit';       CropValues[27] := 3000;
+  Crops[28] := 'Cursed Fruit';     CropValues[28] := 1650;
+  Crops[29] := 'Chocolate Carrot'; CropValues[29] := 16500;
+  Crops[30] := 'Red Lollipop';     CropValues[30] := 70000;
+  Crops[31] := 'Candy Sunflower';  CropValues[31] := 145000;
+  Crops[32] := 'Easter Eggs';      CropValues[32] := 4513;
+  Crops[33] := 'Candy Blossom';    CropValues[33] := 93567;
+
+  // Angry Plant Event
+  Crops[34] := 'Cranberry';        CropValues[34] := 1805;
+  Crops[35] := 'Durian';           CropValues[35] := 4513;
+  Crops[36] := 'Eggplant';         CropValues[36] := 6769;
+  Crops[37] := 'Venus Fly Trap';   CropValues[37] := 17000;  // Approximate value
+  Crops[38] := 'Lotus';            CropValues[38] := 20000;  // Approximate value
+
+  // Lunar Glow Event
+  Crops[39] := 'Nightshade';       CropValues[39] := 2000;
+  Crops[40] := 'Glowshroom';       CropValues[40] := 175;    // Average between 150-200
+  Crops[41] := 'Mint';             CropValues[41] := 5500;   // Approximate
+  Crops[42] := 'Moonflower';       CropValues[42] := 8500;   // Average between 7000-10000
+  Crops[43] := 'Starfruit';        CropValues[43] := 15538;
+  Crops[44] := 'Moonglow';         CropValues[44] := 18000;  // Approximate
+  Crops[45] := 'Moon Blossom';     CropValues[45] := 45125;
+
+  // Blood Moon Shop
+  Crops[46] := 'Blood Banana';     CropValues[46] := 5415;
+  Crops[47] := 'Moon Melon';       CropValues[47] := 16245;
+
+  // Other Seeds
+  Crops[48] := 'Pear';             CropValues[48] := 500;
+  Crops[49] := 'Lemon';            CropValues[49] := 500;
+  Crops[50] := 'Cherry Blossom';  CropValues[50] := 0; // Value unknown or N/A
+
+  MutationCount := 15;
+  Mutations[1]  := 'Wet';        MutationMultipliers[1]  := 2;
+  Mutations[2]  := 'Chilled';    MutationMultipliers[2]  := 2;
+  Mutations[3]  := 'Moonlit';    MutationMultipliers[3]  := 2;
+  Mutations[4]  := 'Chocolate';  MutationMultipliers[4]  := 2;
+  Mutations[5]  := 'Bloodlit';   MutationMultipliers[5]  := 4;
+  Mutations[6]  := 'Frozen';     MutationMultipliers[6]  := 10;
+  Mutations[7]  := 'Golden';     MutationMultipliers[7]  := 20;
+  Mutations[8]  := 'Zombified';  MutationMultipliers[8]  := 25;
+  Mutations[9]  := 'Rainbow';    MutationMultipliers[9]  := 50;
+  Mutations[10] := 'Shocked';    MutationMultipliers[10] := 100;
+  Mutations[11] := 'Celestial';  MutationMultipliers[11] := 120;
+  Mutations[12] := 'Disco';      MutationMultipliers[12] := 125;
+end;
+
+var
+  PlantName, MutationInput, QuantityInput, AgainInput: string;
+  BaseValue, TotalMultiplier, TotalValue: Real;
+  Quantity, Code: Integer;
+
+begin
+  InitializeData;
+  repeat
+    Write('Enter plant name: ');
+    ReadLn(PlantName);
+    BaseValue := GetCropValue(PlantName);
+    if BaseValue < 0 then
+    begin
+      Writeln('Unknown plant.');
+      Continue;
+    end;
+
+    Write('Enter mutations (comma-separated, or blank): ');
+    ReadLn(MutationInput);
+    if MutationInput = '' then
+      TotalMultiplier := 1.0
     else
-      qty := StrToFloat(qtyInput);
+      TotalMultiplier := CalculateTotalMultiplier(MutationInput);
 
-    if qty < 0 then
+    Write('Enter quantity: ');
+    ReadLn(QuantityInput);
+    Val(QuantityInput, Quantity, Code);
+    if (Code <> 0) or (Quantity < 0) then
     begin
-      Writeln('Invalid amount.');
-      Exit;
+      Writeln('Invalid quantity.');
+      Continue;
     end;
 
-    var totalSell := sellValue * qty;
-    Writeln('Sell value for ', qty:0:2, ' ', plant,
-            ' (primary=', primary,
-            ', mutations=[', String.Join(', ', stacks.ToArray()), ']) = ',
-            totalSell:0:2, '₵');
-  end
-  else
-    Writeln('Sell value per ', plant,
-            ' (primary=', primary,
-            ', mutations=[', String.Join(', ', stacks.ToArray()), ']) = ',
-            sellValue:0:2, '₵');
+    TotalValue := BaseValue * TotalMultiplier * Quantity;
+    Writeln('Total sell value: ', TotalValue:0:2, '₵');
+
+    Write('Do another calculation? (y/n): ');
+    ReadLn(AgainInput);
+  until ToLower(AgainInput) <> 'y';
 end.
